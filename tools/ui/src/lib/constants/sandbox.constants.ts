@@ -11,3 +11,16 @@ export const SANDBOX_OUTPUT_MAX_CHARS = 8192;
 export const SANDBOX_EMPTY_OUTPUT = '(no output)';
 
 export const SANDBOX_TRUNCATION_NOTICE = '[output truncated]';
+
+/** Session key used when a call has no conversation context. */
+export const SANDBOX_DEFAULT_SESSION = 'default';
+
+/** fs operations exposed in the sandbox, mapped to the server tool they forward to. */
+export const SANDBOX_FS_OPS = {
+	grep: BuiltInTool.SERVER_GREP_SEARCH,
+	list: BuiltInTool.SERVER_FILE_GLOB_SEARCH,
+	readFile: BuiltInTool.SERVER_READ_FILE,
+	writeFile: BuiltInTool.SERVER_WRITE_FILE
+} as const;
+
+export type SandboxFsOp = keyof typeof SANDBOX_FS_OPS;

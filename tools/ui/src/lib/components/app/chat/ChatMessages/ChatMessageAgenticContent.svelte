@@ -235,6 +235,7 @@
 
 	{#if visiblePermission}
 		<ChatMessageActionCardPermissionRequest
+			detail={visiblePermission.detail}
 			onDecision={handlePermission}
 			serverLabel={visiblePermission.serverLabel}
 			toolName={visiblePermission.toolName}

@@ -12,16 +12,19 @@
 	interface Props {
 		toolName: string;
 		serverLabel: string;
+		/** Extra context, e.g. the file a sandbox fs call wants to read */
+		detail?: string;
 		onDecision: (decision: ToolPermissionDecision) => void;
 	}
 
-	let { onDecision, serverLabel, toolName }: Props = $props();
+	let { detail, onDecision, serverLabel, toolName }: Props = $props();
 </script>
 
 <ChatMessageActionCard icon={ShieldQuestion}>
 	{#snippet message()}
 		Allow use of <span class="font-semibold">{toolName}</span>{#if serverLabel}
-			&nbsp;from <span class="font-semibold">{serverLabel}</span>{/if}?
+			&nbsp;from <span class="font-semibold">{serverLabel}</span>{/if}?{#if detail}
+			<span class="mt-1 block font-mono text-xs break-all opacity-80">{detail}</span>{/if}
 	{/snippet}
 
 	{#snippet actions()}

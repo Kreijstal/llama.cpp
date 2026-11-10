@@ -23,7 +23,7 @@ export class AgenticGates {
 	/** Dedicated reactive state for pending permission requests (ensures immediate UI updates) */
 	private pendingPermissions = new SvelteMap<
 		string,
-		{ toolName: string; serverLabel: string } | null
+		{ toolName: string; serverLabel: string; detail?: string } | null
 	>();
 	/** Resolve functions for pending permission Promises; nothing derives from this map */
 	private permissionResolvers = new SvelteMap<string, (decision: ToolPermissionDecision) => void>();
@@ -69,7 +69,7 @@ export class AgenticGates {
 
 	getPendingPermissionRequest(
 		conversationId: string
-	): { toolName: string; serverLabel: string } | null {
+	): { toolName: string; serverLabel: string; detail?: string } | null {
 		return this.pendingPermissions.get(conversationId) ?? null;
 	}
 
@@ -133,7 +133,8 @@ export class AgenticGates {
 		conversationId: string,
 		toolName: string,
 		serverLabel: string,
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		detail?: string
 	): Promise<ToolPermissionDecision> {
 		const permissionKey = toolsStore.getPermissionKey(toolName);
 
@@ -141,7 +142,7 @@ export class AgenticGates {
 			return ToolPermissionDecision.ONCE;
 		}
 
-		this.pendingPermissions.set(conversationId, { serverLabel, toolName });
+		this.pendingPermissions.set(conversationId, { detail, serverLabel, toolName });
 
 		return new Promise<ToolPermissionDecision>((resolve) => {
 			if (signal?.aborted) {

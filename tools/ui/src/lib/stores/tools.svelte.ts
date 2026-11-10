@@ -15,6 +15,8 @@ import {
 	DISABLED_TOOL_CATEGORIES_LOCALSTORAGE_KEY,
 	DISABLED_TOOL_KEYS_LOCALSTORAGE_KEY,
 	HOME_TILDE,
+	SANDBOX_FS_OPS,
+	type SandboxFsOp,
 	TOOL_GROUP_LABELS,
 	TOOL_SERVER_LABELS
 } from '$lib/constants';
@@ -115,7 +117,13 @@ class ToolsStore {
 		const tools: OpenAIToolDefinition[] = [buildGetDatetimeToolDefinition()];
 
 		if (settingsStore.config.jsSandboxEnabled) {
-			tools.push(buildSandboxToolDefinition(!!settingsStore.config.symbolicMathEnabled));
+			tools.push(
+				buildSandboxToolDefinition({
+					fsOps: this.sandboxFsOps(),
+					persistent: !!settingsStore.config.jsSandboxPersistent,
+					symbolicMath: !!settingsStore.config.symbolicMathEnabled
+				})
+			);
 		}
 
 		const readMedia = this.readMediaTool();
@@ -445,6 +453,19 @@ class ToolsStore {
 		}
 
 		return this._serverHome;
+	}
+
+	/**
+	 * fs operations the sandbox can offer: file access must be enabled and the
+	 * server must provide the tool each operation forwards to. Whether the
+	 * tool is enabled in a given conversation is checked per call.
+	 */
+	sandboxFsOps(): SandboxFsOp[] {
+		if (!settingsStore.config.jsSandboxFsEnabled) return [];
+
+		return (Object.keys(SANDBOX_FS_OPS) as SandboxFsOp[]).filter((op) =>
+			this.hasServerTool(SANDBOX_FS_OPS[op])
+		);
 	}
 
 	setCategoryEnabled(source: ToolSource, enabled: boolean): void {

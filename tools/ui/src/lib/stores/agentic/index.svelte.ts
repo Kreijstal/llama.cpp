@@ -10,7 +10,7 @@
  * the permission/continue/steering gates owned by {@link AgenticGates}.
  */
 
-import { DEFAULT_AGENTIC_CONFIG, NEWLINE } from '$lib/constants';
+import { DEFAULT_AGENTIC_CONFIG, NEWLINE, SANDBOX_FS_OPS } from '$lib/constants';
 import {
 	AUDIO_MIME_TO_EXTENSION,
 	DATA_URI_BASE64_REGEX,
@@ -30,7 +30,7 @@ import {
 } from '$lib/enums';
 import { ChatService } from '$lib/services';
 import { ReadMediaService } from '$lib/services/read-media.service';
-import { SandboxService } from '$lib/services/sandbox.service';
+import { type SandboxFsHandler, SandboxService } from '$lib/services/sandbox.service';
 import { ToolsService } from '$lib/services/tools.service';
 // direct imports between stores, not via the barrel, to avoid circular deps
 import { AgenticGates } from '$lib/stores/agentic/gates.svelte';
@@ -244,7 +244,7 @@ class AgenticStore {
 
 	getPendingPermissionRequest(
 		conversationId: string
-	): { toolName: string; serverLabel: string } | null {
+	): { toolName: string; serverLabel: string; detail?: string } | null {
 		return this.gates.getPendingPermissionRequest(conversationId);
 	}
 
@@ -417,6 +417,55 @@ class AgenticStore {
 			predicted_n: capturedTimings?.predicted_n,
 			prompt_ms: capturedTimings?.prompt_ms,
 			prompt_n: capturedTimings?.prompt_n
+		};
+	}
+
+	/**
+	 * Route the sandbox's `fs` calls to server tools. A call is allowed only
+	 * when the matching server tool is enabled for this request, and it goes
+	 * through the same permission gate as a direct call to that tool, so
+	 * "Always allow read_file" covers both.
+	 */
+	private buildSandboxFsHandler(
+		conversationId: string,
+		tools: ReturnType<typeof toolsStore.getEnabledToolsForLLM>
+	): SandboxFsHandler {
+		const enabled = new Set(tools.map((t) => t.function.name));
+
+		return async (op, args, signal) => {
+			const toolName = SANDBOX_FS_OPS[op];
+
+			if (!enabled.has(toolName)) {
+				throw new Error(`fs.${op} is unavailable: server tool ${toolName} is not enabled`);
+			}
+
+			const target = [args.path, args.pattern].filter((v) => typeof v === 'string').join('  ');
+			const decision = await this.gates.requestPermission(
+				conversationId,
+				toolName,
+				toolsStore.getToolServerLabel(toolName),
+				signal,
+				`run_javascript → fs.${op}(${target})`
+			);
+
+			if (decision === ToolPermissionDecision.DENY) {
+				throw new Error(`fs.${op} was denied by the user`);
+			}
+
+			const cwd = conversationsStore.activeConversation?.cwd;
+			const raw = await ToolsService.executeToolRaw(toolName, args, signal, cwd);
+
+			if (typeof raw.error === 'string') throw new Error(raw.error);
+
+			switch (op) {
+				case 'readFile':
+				case 'grep':
+					return typeof raw.plain_text_response === 'string' ? raw.plain_text_response : raw;
+				case 'list':
+					return Array.isArray(raw.entries) ? raw.entries : raw;
+				default:
+					return raw;
+			}
 		};
 	}
 
@@ -836,7 +885,12 @@ class AgenticStore {
 									conversationsStore.activeConversation?.cwd
 								);
 							} else {
-								executionResult = await SandboxService.executeTool(toolName, args, signal);
+								executionResult = await SandboxService.executeTool(toolName, args, signal, {
+									fsHandler: toolsStore.sandboxFsOps().length
+										? this.buildSandboxFsHandler(conversationId, tools)
+										: undefined,
+									sessionKey: conversationId
+								});
 							}
 
 							result = executionResult.content;

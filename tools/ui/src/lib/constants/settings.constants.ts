@@ -692,6 +692,22 @@ export const SETTINGS_REGISTRY: SettingsSectionEntry[] = [
 				type: SettingsFieldType.CHECKBOX
 			},
 			{
+				defaultValue: false,
+				dependsOn: SETTINGS_KEYS.JS_SANDBOX_ENABLED,
+				help: 'Keep one sandbox alive per conversation. Values exported with `export const x = ...` or `exports.x = ...` are available as plain variables in later calls. A timeout or the reset parameter clears the state.',
+				key: SETTINGS_KEYS.JS_SANDBOX_PERSISTENT,
+				label: 'Persistent sandbox state',
+				type: SettingsFieldType.CHECKBOX
+			},
+			{
+				defaultValue: false,
+				dependsOn: SETTINGS_KEYS.JS_SANDBOX_ENABLED,
+				help: 'Expose an `fs` object in the sandbox (readFile, list, grep, writeFile). Calls are forwarded to the matching server tools (read_file, file_glob_search, grep_search, write_file), only when those tools are enabled, and each call asks for the same permission as the server tool. Requires the server to be started with --tools.',
+				key: SETTINGS_KEYS.JS_SANDBOX_FS_ENABLED,
+				label: 'Sandbox file access (via server tools)',
+				type: SettingsFieldType.CHECKBOX
+			},
+			{
 				defaultValue: '',
 				help: 'Custom JSON parameters to send to the API. Must be valid JSON format.',
 				key: SETTINGS_KEYS.CUSTOM_JSON,
