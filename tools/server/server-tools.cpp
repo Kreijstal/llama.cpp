@@ -1240,6 +1240,29 @@ struct server_tool_grep_search : server_tool {
 // exec_shell_command: run an arbitrary shell command
 //
 
+#ifdef _WIN32
+// a POSIX sh on PATH (MSYS2, Git for Windows, Cygwin), found once at first use.
+// cmd.exe does not understand the \" escapes the argv quoting writes, so a quoted
+// argument reaches the program with stray quotes and backslashes in it; sh decodes
+// them. Models also tend to write POSIX commands, so sh is preferred when present
+static const std::string & windows_posix_shell() {
+    static const std::string sh = [] {
+        char buf[MAX_PATH];
+        const DWORD n = SearchPathA(nullptr, "sh.exe", nullptr, MAX_PATH, buf, nullptr);
+        return (n > 0 && n < MAX_PATH) ? std::string(buf, n) : std::string();
+    }();
+    return sh;
+}
+#endif
+
+static std::string shell_name_for_description() {
+#ifdef _WIN32
+    return windows_posix_shell().empty() ? "Windows cmd.exe (cmd /c)" : "POSIX sh (sh -c, MSYS-style paths such as /c/Users)";
+#else
+    return "POSIX sh (sh -c)";
+#endif
+}
+
 static constexpr size_t SERVER_TOOL_EXEC_SHELL_COMMAND_MAX_OUTPUT_SIZE = 16 * 1024; // 16 KB
 static constexpr int    SERVER_TOOL_EXEC_SHELL_COMMAND_MAX_TIMEOUT     = 60;        // seconds
 
@@ -1257,7 +1280,7 @@ struct server_tool_exec_shell_command : server_tool {
             {"type", "function"},
             {"function", {
                 {"name", name},
-                {"description", "Execute a shell command and return its output (stdout and stderr combined)."},
+                {"description", "Execute a shell command and return its output (stdout and stderr combined). Commands run under " + shell_name_for_description() + "."},
                 {"parameters", {
                     {"type", "object"},
                     {"properties", {
@@ -1283,7 +1306,9 @@ struct server_tool_exec_shell_command : server_tool {
 #ifdef _WIN32
         std::vector<std::string> args = !json_value(params, "runtime", std::string()).empty()
             ? std::vector<std::string>{"sh", "-c", command}
-            : std::vector<std::string>{"cmd", "/c", command};
+            : !windows_posix_shell().empty()
+                ? std::vector<std::string>{windows_posix_shell(), "-c", command}
+                : std::vector<std::string>{"cmd", "/c", command};
 #else
         std::vector<std::string> args = {"sh", "-c", command};
 #endif
