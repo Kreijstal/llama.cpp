@@ -1257,7 +1257,12 @@ static const std::string & windows_posix_shell() {
 
 static std::string shell_name_for_description() {
 #ifdef _WIN32
-    return windows_posix_shell().empty() ? "Windows cmd.exe (cmd /c)" : "POSIX sh (sh -c, MSYS-style paths such as /c/Users)";
+    return windows_posix_shell().empty()
+        ? "Windows cmd.exe (cmd /c)"
+        : "POSIX sh (sh -c, MSYS-style paths such as /c/Users). "
+          "Native Windows programs (node, python, ...) get /c/... converted only when the path is a whole argument "
+          "(node /c/x.js works); paths written inside code or files are not converted, so use C:/... there "
+          "(node -e \"require('C:/x.js')\")";
 #else
     return "POSIX sh (sh -c)";
 #endif
